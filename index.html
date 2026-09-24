@@ -43,7 +43,8 @@ button{cursor:pointer}
 .top{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px;margin-bottom:10px}
 .brand b{font-size:20px;letter-spacing:.04em;display:block}
 .brand span{color:var(--mute);font-size:12px}
-.pick{display:flex;gap:6px;margin-top:8px}
+.pick{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.pick select{background:var(--panel2);border:1px solid var(--line);padding:6px 8px;font-size:15px;max-width:100%}
 .pick input{width:7.5em;background:var(--panel2);border:1px solid var(--line);padding:6px 8px;font-size:16px}
 .btn{background:var(--panel2);border:1px solid var(--cy);color:var(--cy);padding:6px 12px}
 .btn.solid{background:var(--cy);color:var(--panel);font-weight:600}
@@ -131,8 +132,8 @@ footer{color:var(--mute);font-size:12px;margin:14px 2px;max-width:75ch}
 <header class="top">
   <div class="panel"><div class="in brand">
     <b>個股分析儀表板</b><span>公開資料計算，每個分數都能點開看公式</span>
-    <div class="pick"><label for="sid" hidden>股票代號</label>
-      <input id="sid" inputmode="numeric" maxlength="6" placeholder="股票代號" value="6446">
+    <div class="pick" id="pick"><label for="sid" hidden>股票代號</label>
+      <input id="sid" list="sids" maxlength="6" placeholder="股票代號" value="6446" autocomplete="off"><datalist id="sids"></datalist>
       <button class="btn" id="go">切換股票</button></div>
   </div></div>
   <div class="panel"><div class="in quote">
@@ -405,6 +406,11 @@ async function save(){const body={name:S.name,days:S.days.map(x=>[x.d,x.o,x.h,x.
   try{localStorage.setItem('stk:'+S.id,JSON.stringify(body));setSave('資料只存在這台裝置的瀏覽器')}catch(e){setSave('無法儲存，重新整理後需要重新匯入')}}
 function adopt(b){if(!b||!Array.isArray(b.days)||!b.days.length)return false;S.name=b.name||'';S.days=b.days.map(a=>({d:a[0],o:a[1],h:a[2],l:a[3],c:a[4],v:a[5]}));S.inst=b.inst||{};S.demo=false;
   S.note='';(b.adj||[]).forEach(a=>{if(!(a.f>0&&a.f<1.5))return;S.days.forEach(x=>{if(x.d<a.before)['o','h','l','c'].forEach(k=>x[k]=+(x[k]*a.f).toFixed(2))});S.note='除權息日之前的價格已還原'});return true}
+async function loadList(){try{const r=await fetch('data/index.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const j=await r.json();const ids=(j.stocks||[]).map(String);if(!ids.length)return;
+  const names=j.names||{};document.getElementById('sids').innerHTML=ids.map(i=>`<option value="${i}">${esc(names[i]||'')}</option>`).join('');
+  let sel=document.getElementById('list');if(!sel){sel=document.createElement('select');sel.id='list';sel.setAttribute('aria-label','追蹤清單');document.getElementById('pick').appendChild(sel);
+    sel.onchange=()=>{if(!sel.value)return;document.getElementById('sid').value=sel.value;document.getElementById('go').click()}}
+  sel.innerHTML='<option value="">追蹤清單…</option>'+ids.map(i=>`<option value="${i}">${i} ${esc(names[i]||'')}</option>`).join('')}catch(e){}}
 async function fetchRemote(){try{const r=await fetch('data/'+S.id+'.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)return null;return await r.json()}catch(e){return null}}
 async function load(){let got=false;
   const rm=await fetchRemote();if(rm&&adopt(rm)){setSave('自動更新資料，最後更新 '+String(rm.updated||'').replace('T',' ').slice(0,16)+'（來源 '+(rm.source||'FinMind')+'）。'+S.note);render();return}
@@ -554,7 +560,7 @@ if(typeof document!=='undefined'){
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change',render);
   new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   try{const l=localStorage.getItem('stk:last');if(l&&/^[0-9A-Z]{4,6}$/.test(l)){S.id=l;document.getElementById('sid').value=l}}catch(e){}
-  load();
+  loadList();load();
   if(window.claude&&window.claude.use)window.claude.use('db').then(db=>{if(db){DB=db;load()}}).catch(()=>{});
 }
 if(typeof module!=='undefined')module.exports={S,compute,parseImport,applyImport,demoData,aggregate,useSeed};

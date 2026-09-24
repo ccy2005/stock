@@ -205,7 +205,9 @@ def main():
             failed += 1
             print(f"  {sid} 失敗：{e}")
         time.sleep(1)
-    (DATA / "index.json").write_text(json.dumps({"stocks": ids}, ensure_ascii=False), "utf-8")
+    have = [i for i in ids if (DATA / f"{i}.json").exists()]
+    (DATA / "index.json").write_text(json.dumps({"stocks": have, "names": {i: names.get(i, "") for i in have}},
+                                                ensure_ascii=False), "utf-8")
     if failed == len(ids):
         sys.exit(1)
 
