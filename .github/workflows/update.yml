@@ -2,10 +2,9 @@ name: 每日更新股票資料
 
 on:
   schedule:
-    # GitHub 用 UTC。台灣時間 = UTC + 8
-    - cron: "40 10 * * 1-5"   # 台灣 18:40：日K + 三大法人
-    - cron: "50 13 * * 1-5"   # 台灣 21:50：補抓較晚公布的資料
-  workflow_dispatch:          # 可在 Actions 頁面手動按「Run workflow」
+    - cron: "40 10 * * 1-5"   # 台灣 18:40
+    - cron: "50 13 * * 1-5"   # 台灣 21:50
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,8 +17,8 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: 抓資料
@@ -31,4 +30,10 @@ jobs:
           git config user.name "stock-bot"
           git config user.email "stock-bot@users.noreply.github.com"
           git add data
-          git diff --cached --quiet && echo "沒有變動" || (git commit -m "data: $(TZ=Asia/Taipei date +'%F %H:%M')" && git push)
+          if git diff --cached --quiet; then echo "沒有變動"; exit 0; fi
+          git commit -m "data: $(TZ=Asia/Taipei date +'%F %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "推送失敗，重試 $i"; sleep 10
+          done
+          exit 1
